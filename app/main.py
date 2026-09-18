@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import logging
 import os
+import sys
 import time
 from collections import defaultdict, deque
 from threading import Lock
@@ -94,16 +95,18 @@ def health():
 def readyz():
     """Readiness probe — verifies env is configured correctly.
 
-    Returns 200 only when required API keys are present (does NOT consume
-    any quota). Use this in orchestrators that need to wait until the
-    service is truly ready to handle requests.
+    Returns 200 only when a primary LLM provider key is present (does NOT
+    consume any quota). Use this in orchestrators that need to wait until
+    the service is truly ready to handle requests.
     """
+    openai_ok = bool(os.getenv("OPENAI_API_KEY"))
     groq_ok = bool(os.getenv("GROQ_API_KEY"))
     gemini_ok = bool(os.getenv("GEMINI_API_KEY"))
     rate_limit = _RATE_LIMIT_PER_MIN
-    ready = groq_ok  # Groq is the primary; Gemini is a backup
+    ready = openai_ok or groq_ok  # either primary provider is sufficient; Gemini is only the final backup
     payload = {
         "status": "ready" if ready else "degraded",
+        "openai_key_present": openai_ok,
         "groq_key_present": groq_ok,
         "gemini_key_present": gemini_ok,
         "rate_limit_per_min": rate_limit,
@@ -118,7 +121,7 @@ def version():
     return {
         "name": "GridWise",
         "version": APP_VERSION,
-        "python": os.popen("python --version 2>&1").read().strip() or "unknown",
+        "python": sys.version.split()[0],
         "rate_limit_per_min": _RATE_LIMIT_PER_MIN,
     }
 

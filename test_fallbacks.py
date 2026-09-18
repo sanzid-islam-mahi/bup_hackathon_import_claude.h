@@ -19,10 +19,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from app.llm import chat, GROQ_MODEL_CHAIN, _strip_fences
 from app.interpreter import SYSTEM_PROMPT, _build_user_prompt, _parse_llm_json
 from app.schemas import DirectiveInterpretation, OptimizeRequest
-
-
-def load_samples():
-    return json.loads(Path("/home/sanzid/competitions/bup-hackathon/samples.json").read_text())["cases"]
+from samples_loader import load_samples
 
 
 def run_one_sample(case: dict, model: str) -> tuple[bool, str]:

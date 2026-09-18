@@ -6,7 +6,7 @@ Usage:
 
 Tests:
   1. /health       → 200 {"status":"ok"}
-  2. /readyz       → 200 with groq_key_present=True
+  2. /readyz       → 200 with a primary LLM provider key present (openai or groq)
   3. /version      → 200 with version info
   4. /optimize-energy with SAMPLE-01 → 200, total_cost matches reference
   5. POST malformed body → 400
@@ -22,8 +22,13 @@ from urllib import request as urlreq
 from urllib.error import HTTPError, URLError
 
 
+from samples_loader import samples_path
+
 URL = os.getenv("GRIDWISE_URL", "https://gridwise-wppp.onrender.com").rstrip("/")
-SAMPLES_PATH = Path("/home/sanzid/competitions/bup-hackathon/samples.json")
+try:
+    SAMPLES_PATH = samples_path()
+except FileNotFoundError:
+    SAMPLES_PATH = Path("samples.json")  # keeps .exists() check below working either way
 EXPECTED_COSTS = {
     "SAMPLE-01": 38365.0,
     # Others verified separately
@@ -74,8 +79,8 @@ def main() -> int:
         failures += 1
     try:
         readyz = json.loads(body)
-        if not _check("groq_key_present=true", readyz.get("groq_key_present") is True,
-                       f"readyz={readyz}"):
+        provider_ready = readyz.get("openai_key_present") is True or readyz.get("groq_key_present") is True
+        if not _check("a primary provider key is present", provider_ready, f"readyz={readyz}"):
             failures += 1
     except Exception as e:
         if not _check("readyz parses as JSON", False, str(e)):

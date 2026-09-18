@@ -25,7 +25,9 @@ def _ensure_configured():
         genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
         _configured = True
 
-DEFAULT_MODEL = "gemini-2.0-flash-exp"
+# "-exp" models are experimental and get retired/renamed by Google without
+# notice; use the stable rolling alias (matches LOG.md's documented decision).
+DEFAULT_MODEL = "gemini-flash-lite-latest"
 
 
 def chat(prompt: str, system: str = "", model: str = DEFAULT_MODEL, temperature: float = 0.7) -> str:

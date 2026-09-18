@@ -323,6 +323,27 @@ def _fallback_plan(
         ))
         e = e_after
 
+    # This forward pass only ever discharges to cover grid-cap-forced
+    # deficits, never charges — so `e` can only have drifted DOWN from
+    # initial_energy_kwh, never up. Close that gap in hour 23 only (funded
+    # by extra grid import there) so end-of-day neutrality (Section 9.6)
+    # holds even on this rarely-hit fallback path, without rippling the
+    # correction back through hours already computed.
+    residual = round(float(battery.initial_energy_kwh) - e, 4)
+    if residual > 1e-4 and 23 not in no_charge:
+        last = plan[23]
+        existing_charge = last.battery_kwh if last.battery_action == "charge" else 0.0
+        headroom_rate = battery.max_charge_kwh_per_hour - existing_charge
+        headroom_capacity = battery.capacity_kwh - last.battery_energy_after_kwh
+        grid_cap = max_grid.get(23)
+        headroom_grid = float("inf") if grid_cap is None else max(0.0, grid_cap - last.grid_kwh)
+        extra = max(0.0, min(residual, headroom_rate, headroom_capacity, headroom_grid))
+        if extra > 1e-4:
+            last.grid_kwh = round(last.grid_kwh + extra, 4)
+            last.battery_action = "charge"
+            last.battery_kwh = round(existing_charge + extra, 4)
+            last.battery_energy_after_kwh = round(last.battery_energy_after_kwh + extra, 4)
+
     return plan
 
 
@@ -370,3 +391,19 @@ def optimize(req: OptimizeRequest, interpretations: List[DirectiveInterpretation
         peak_grid_kwh=round(peak_grid, 4),
         plan_summary=summary,
     )
+
+
+if __name__ == "__main__":
+    # Self-check: _fallback_plan must still satisfy end-of-day battery
+    # neutrality (Section 9.6) even though its forward pass only ever
+    # discharges. Regression check for the hour-23 charge-back correction.
+    battery = BatterySpec(capacity_kwh=500, initial_energy_kwh=200, minimum_energy_kwh=50,
+                           max_charge_kwh_per_hour=100, max_discharge_kwh_per_hour=100)
+    demand = {h: 180 for h in range(24)}
+    demand[5] = 350
+    eff_solar = {h: 0 for h in range(24)}
+    plan = _fallback_plan(battery, demand, eff_solar, {}, set(), set(), {5: 300})
+    assert abs(plan[23].battery_energy_after_kwh - battery.initial_energy_kwh) < 0.01, \
+        "fallback plan violates end-of-day battery neutrality"
+    assert all(p.grid_kwh <= 300 + 0.01 for p in plan if p.hour == 5), "fallback plan violates grid cap"
+    print("optimizer.py self-check passed: fallback plan neutrality + grid cap OK")

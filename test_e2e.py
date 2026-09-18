@@ -7,11 +7,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from app.schemas import OptimizeRequest, OptimizeResponse
 from app.interpreter import interpret_notes
 from app.optimizer import optimize
-
-
-def load_samples():
-    data = json.loads(Path("/home/sanzid/competitions/bup-hackathon/samples.json").read_text())
-    return data["cases"]
+from samples_loader import load_samples
 
 
 def verify_plan(req: OptimizeRequest, resp: OptimizeResponse) -> list:
