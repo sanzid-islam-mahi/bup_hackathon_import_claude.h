@@ -79,12 +79,18 @@ def _check_rate_limit(client_ip: str) -> bool:
 # ===================== Endpoints =====================
 
 @app.get("/health")
+@app.head("/health")
 def health():
-    """Process liveness probe. Must return {"status": "ok"} for judge harness."""
+    """Process liveness probe. Must return {"status": "ok"} for judge harness.
+
+    Supports HEAD for compatibility with monitoring tools (UptimeRobot, etc.)
+    that probe via HEAD by default.
+    """
     return {"status": "ok"}
 
 
 @app.get("/readyz")
+@app.head("/readyz")
 def readyz():
     """Readiness probe — verifies env is configured correctly.
 
@@ -106,6 +112,7 @@ def readyz():
 
 
 @app.get("/version")
+@app.head("/version")
 def version():
     """Build / version info for debugging and judge audits."""
     return {

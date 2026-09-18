@@ -82,9 +82,9 @@ README.md
 
 | Route | Method | Notes |
 |---|---|---|
-| `/health` | GET | Process liveness; always cheap. Returns `{"status":"ok"}`. |
-| `/readyz` | GET | Verifies `GROQ_API_KEY` env present; reports rate-limit config. 503 if not ready. |
-| `/version` | GET | Build / Python / rate-limit info for audits. |
+| `/health` | GET, HEAD | Process liveness; always cheap. Returns `{"status":"ok"}`. HEAD supported for monitoring tools. |
+| `/readyz` | GET, HEAD | Verifies `GROQ_API_KEY` env present; reports rate-limit config. 503 if not ready. |
+| `/version` | GET, HEAD | Build / Python / rate-limit info for audits. |
 | `/optimize-energy` | POST | Interpret operator notes + return 24h LP-optimal schedule. |
 | `/optimize-energy` (rate-limited) | POST | When `RATE_LIMIT_PER_MIN > 0` env is set, caps requests per IP per 60s; returns 429. Default off. |
 | Malformed `POST` body | — | Returns HTTP 400 (not 422) via `RequestValidationError` handler. |
