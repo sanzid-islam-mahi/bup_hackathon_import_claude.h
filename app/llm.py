@@ -26,16 +26,31 @@ from groq import Groq
 load_dotenv(dotenv_path=Path(__file__).parent.parent / ".env")
 
 _client = None
+_provider = None
 
 
 def _get_client():
-    global _client
-    if _client is None:
+    """OpenAI is the primary provider (used whenever OPENAI_API_KEY is set).
+    Groq is the fallback when only a Groq key is available. Same
+    chat()/chat_with_fallback() interface either way, so interpreter.py
+    never needs to know which one is active.
+    """
+    global _client, _provider
+    if _client is not None:
+        return _client, _provider
+    if os.getenv("OPENAI_API_KEY"):
+        from openai import OpenAI
+        _client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        _provider = "openai"
+    elif os.getenv("GROQ_API_KEY"):
         _client = Groq(api_key=os.getenv("GROQ_API_KEY"))
-    return _client
+        _provider = "groq"
+    else:
+        raise RuntimeError("No LLM API key configured. Set OPENAI_API_KEY or GROQ_API_KEY in .env")
+    return _client, _provider
 
 
-DEFAULT_MODEL = "openai/gpt-oss-120b"
+DEFAULT_MODEL = "openai/gpt-oss-120b"  # Groq default; ignored when provider is openai
 
 # Rotation order: tried in this sequence. Order matters — cheaper/faster first.
 # compound-mini has no daily token cap but only 250 RPD, so we use it
@@ -45,6 +60,8 @@ GROQ_MODEL_CHAIN: List[str] = [
     "groq/compound-mini",
     "qwen/qwen3.8-27b",
 ]
+
+OPENAI_MODEL_CHAIN: List[str] = ["gpt-4o-mini"]
 
 
 def _is_rate_limit(exc: Exception) -> bool:
@@ -80,19 +97,27 @@ def _is_transient(exc: Exception) -> bool:
 def chat(
     prompt: str,
     system: str = "",
-    model: str = DEFAULT_MODEL,
+    model: str = None,
     temperature: float = 0.7,
 ) -> str:
     """Single-model chat completion (no fallback)."""
+    client, provider = _get_client()
+    if model is None:
+        model = DEFAULT_MODEL if provider == "groq" else OPENAI_MODEL_CHAIN[0]
+
     messages = []
     if system:
         messages.append({"role": "system", "content": system})
     messages.append({"role": "user", "content": prompt})
-    response = _get_client().chat.completions.create(
-        model=model,
-        messages=messages,
-        temperature=temperature,
-    )
+
+    kwargs = {"model": model, "messages": messages, "temperature": temperature}
+    if provider == "openai" and "json" in (system + prompt).lower():
+        # OpenAI requires the literal word "json" in the prompt to use this mode;
+        # every structured-output caller here (interpreter.py) already demands
+        # JSON in its system prompt, so this guarantees a parseable response.
+        kwargs["response_format"] = {"type": "json_object"}
+
+    response = client.chat.completions.create(**kwargs)
     return response.choices[0].message.content
 
 
@@ -108,7 +133,9 @@ def chat_with_fallback(
     model in the chain failed. Each 429 immediately triggers the next model
     (no retry-with-backoff: the budget is gone, retrying just wastes latency).
     """
-    chain = models if models is not None else GROQ_MODEL_CHAIN
+    _, provider = _get_client()
+    default_chain = GROQ_MODEL_CHAIN if provider == "groq" else OPENAI_MODEL_CHAIN
+    chain = models if models is not None else default_chain
     last_exc: Exception | None = None
     for model in chain:
         try:
@@ -130,7 +157,7 @@ def chat_with_fallback(
     raise RuntimeError("chat_with_fallback called with empty model list")
 
 
-def structured_chat(prompt: str, json_schema_description: str, system: str = "", model: str = DEFAULT_MODEL) -> dict:
+def structured_chat(prompt: str, json_schema_description: str, system: str = "", model: str = None) -> dict:
     """Ask LLM to return JSON matching a schema (no model rotation)."""
     full_prompt = f"""{prompt}
 

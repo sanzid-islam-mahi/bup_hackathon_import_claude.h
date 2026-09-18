@@ -99,8 +99,8 @@ README.md
 
 | Item | Value |
 |------|-------|
-| LLM chain | Groq `openai/gpt-oss-120b` → `groq/compound-mini` → `qwen/qwen3.8-27b` → Gemini |
-| Backup LLM | Gemini `gemini-flash-lite-latest` (final failover after Groq chain) |
+| LLM provider | **OpenAI `gpt-4o-mini`** (primary, whenever `OPENAI_API_KEY` is set) → Groq `openai/gpt-oss-120b` → `groq/compound-mini` → `qwen/qwen3.8-27b` (fallback chain, used if only `GROQ_API_KEY` is set) → Gemini (final backup) |
+| Backup LLM | Gemini `gemini-flash-lite-latest` (final failover after primary chain exhausts) |
 | Groq limits (free) | 30 RPM, 1K RPD, 8K TPM, 200K TPD |
 | Framework | FastAPI 0.115 |
 | Optimizer | `scipy.optimize.linprog` (HiGHS, LP-optimal) |
@@ -115,7 +115,7 @@ README.md
 | Route | Method | Notes |
 |---|---|---|
 | `/health` | GET, HEAD | Process liveness; always cheap. Returns `{"status":"ok"}`. HEAD support added after UptimeRobot default HEAD probes got 405. |
-| `/readyz` | GET, HEAD | Verifies `GROQ_API_KEY` env present; reports rate-limit config. 503 if not ready. |
+| `/readyz` | GET, HEAD | Verifies `OPENAI_API_KEY` or `GROQ_API_KEY` env present; reports rate-limit config. 503 if not ready. |
 | `/version` | GET, HEAD | Build / Python / rate-limit info for audits. |
 | `/optimize-energy` | POST | Interpret operator notes + return 24h LP-optimal schedule. |
 | `/optimize-energy` (rate-limited) | POST | When `RATE_LIMIT_PER_MIN > 0` env is set, caps requests per IP per 60s; returns 429. Default off. |
@@ -173,6 +173,7 @@ README.md
 - **Repo**: `https://github.com/sanzid-islam-mahi/bup_hackathon_import_claude.h` (private)
 - **Render service name**: `gridwise-wppp`
 - **Render env vars configured**: `GROQ_API_KEY`, `GEMINI_API_KEY`, `PYTHONUNBUFFERED=1`
+  - ⚠️ To make Render use OpenAI as primary (see Round 2 below), add `OPENAI_API_KEY` in the Render dashboard — code prefers it automatically once present, no redeploy code change needed.
 - **Plan**: Free tier (sleeps after 15 min idle without keep-alive)
 - **Keep-alive**: UptimeRobot monitor on `/health`, 5-min interval
 
@@ -234,4 +235,18 @@ Since `quality_ratio = min(1, organizer_optimal_cost / team_cost)` and all 10 ca
 | Push the staged commit (HEAD support, edge case fixes, optimizer fallback fix) | ✅ Pushed — verified via `git log` | Done |
 | Set `RATE_LIMIT_PER_MIN=15` on Render | Protects against quota burn | Maybe (low priority if judging is brief) |
 | Record 3-min video | Tie-break only (no base points) | Skip if time-constrained |
+
+## Round 2 — Second-pass review (manual, not yet committed)
+
+A second independent review (Claude Code, teammate's parallel branch merged into this review) found and fixed real bugs beyond the original EVALUATION.md audit:
+
+- ✅ **OpenAI added as primary provider** per team decision — `app/llm.py` now prefers `OPENAI_API_KEY` (`gpt-4o-mini`, JSON mode) and falls back to the existing Groq chain when only `GROQ_API_KEY` is set. Verified end-to-end locally (paraphrased notes correctly interpreted, ~4.4s full round trip).
+- 🔴 **`/readyz` bug**: only checked `GROQ_API_KEY`, so it would incorrectly report `503 degraded` once OpenAI became the configured provider. Fixed to accept either key.
+- 🟡 **`/version` inefficiency**: shelled out via `os.popen("python --version")` on every request. Replaced with `sys.version` (no subprocess).
+- 🔴 **Gemini backup model was stale/experimental**: code still had `gemini-2.0-flash-exp` even though this file's own Stack table already documented `gemini-flash-lite-latest` as the decision — experimental Google model IDs get retired without notice. Fixed to match the documented decision.
+- 🔴 **`samples.json` portability bug**: hardcoded to `/home/sanzid/competitions/bup-hackathon/samples.json` in 4 files (`test_interpreter.py`, `test_e2e.py`, `test_fallbacks.py`, `smoke_test.py`) — meant nobody but that one machine could run the documented verification steps, directly hurting Documentation & Reproducibility scoring. Added `samples_loader.py` (env var `SAMPLES_JSON_PATH` → repo root → clear error) and pointed all 4 scripts at it. **The actual `samples.json` file still needs to be added to the repo** — get it from whoever has it and drop it in the repo root.
+- 🔴 **`_fallback_plan` end-of-day neutrality gap**: the LP-failure fallback path only ever discharges the battery, never charges — so if it ever fired, the resulting plan would violate the hard end-of-day battery neutrality rule (Section 9.6), a guaranteed-invalid hidden case. Added a bounded hour-23 charge-back correction (funded by extra grid import, respecting rate/capacity/grid-cap headroom) plus a runnable self-check (`python -m app.optimizer`). Low-probability path (HiGHS essentially never fails on guaranteed-feasible scenarios) but a real correctness gap if it ever does.
+- 📝 **README/LOG/.env.example corrected** to match reality: stack section, env var table, "Known Limitations" (previously claimed the greedy fallback had been *removed* — it's still very much in the code and now fixed instead), verification steps, project structure.
+
+**Still outstanding:** commit + push this round's changes; obtain and commit the real `samples.json`; re-run `test_interpreter.py` / `test_e2e.py` against it once available; decide whether to add `OPENAI_API_KEY` to Render's env vars.
 

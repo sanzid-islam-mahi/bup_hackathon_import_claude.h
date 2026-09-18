@@ -6,11 +6,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 from app.schemas import OptimizeRequest
 from app.interpreter import interpret_notes
-
-
-def load_samples():
-    data = json.loads(Path("/home/sanzid/competitions/bup-hackathon/samples.json").read_text())
-    return data["cases"]
+from samples_loader import load_samples
 
 
 def compare(case_id: str, expected: list, got: list) -> tuple[bool, str]:
