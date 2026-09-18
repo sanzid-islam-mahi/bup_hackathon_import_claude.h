@@ -61,7 +61,14 @@ GROQ_MODEL_CHAIN: List[str] = [
     "qwen/qwen3.8-27b",
 ]
 
-OPENAI_MODEL_CHAIN: List[str] = ["gpt-4o-mini"]
+# gpt-4.1-mini beat gpt-4o-mini on both correctness and latency in head-to-head
+# testing on this task: gpt-4o-mini repeatedly confused "no grid import"
+# (max_grid_window, cap=0) with "no battery charging" (no_charge_window) and
+# mishandled inclusive "X through Y" hour ranges; gpt-4.1-mini got every case
+# right and averaged ~40% lower latency. gpt-4o-mini kept as a same-org fallback.
+# (gpt-5-mini was tried but rejects temperature=0.1 — only its default of 1 is
+# supported — which is undesirable for deterministic structured extraction.)
+OPENAI_MODEL_CHAIN: List[str] = ["gpt-4.1-mini", "gpt-4o-mini"]
 
 
 def _is_rate_limit(exc: Exception) -> bool:
