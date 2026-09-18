@@ -369,7 +369,8 @@
       <div style="display:flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
         <span class="live-pill"><span class="dot"></span>LIVE ON RENDER</span>
         <span class="live-pill"><span class="dot"></span>10 / 10 SAMPLES</span>
-        <span class="live-pill"><span class="dot"></span>DOCKER FALLBACK</span>
+        <span class="live-pill"><span class="dot"></span>OPENAI PRIMARY</span>
+        <span class="live-pill"><span class="dot"></span>32 / 32 SPEC AUDIT</span>
       </div>
     </div>
     <div class="footer">
@@ -492,25 +493,24 @@
     <div class="brand"><span class="dot"></span>GRIDWISE</div>
     <div class="header">
       <div class="page-tag">Resilience</div>
-      <h2>Four models, one <span class="ink2">safety net</span> per step.</h2>
-      <p class="lede">Free-tier LLMs rate-limit. We walk a chain — if one 429s, the next model in line tries.</p>
+      <h2>Six models, <span class="ink2">three providers</span>, one safety net.</h2>
+      <p class="lede">OpenAI primary. Groq fallback. Gemini last resort. Every rotation is automatic — no user-visible failure.</p>
     </div>
     <div class="body col">
-      <!-- Inline SVG visual (swap for chain.svg when ready) -->
       <div class="chain">
-        <img src="chain.svg" alt="LLM failover chain: gpt-oss-120b → compound-mini → qwen-3.8-27b → Gemini">
+        <img src="chain.svg" alt="LLM failover chain: gpt-4.1-mini → gpt-4o-mini → gpt-oss-120b → compound-mini → qwen-3.8-27b → gemini-flash-lite-latest">
       </div>
 
       <div style="display:flex; gap: 1.5rem; align-items: center; width: 100%; justify-content: center; margin-top: 0.5rem;">
-        <span class="muted small">4 models</span>
+        <span class="muted small">6 models</span>
         <span style="width:1px;height:14px;background:var(--line);"></span>
         <span class="muted small">3 different providers</span>
         <span style="width:1px;height:14px;background:var(--line);"></span>
-        <span class="muted small">auto-rotate, no user-visible failure</span>
+        <span class="muted small">auto-rotate on 429 / 5xx</span>
       </div>
     </div>
     <div class="footer">
-      <span>8 layers of resilience total</span>
+      <span>openai primary · groq fallback · gemini last resort</span>
       <span>05 / 06</span>
     </div>
     <div class="slide-counter"><b>05</b> &nbsp;/&nbsp; 06</div>
@@ -523,8 +523,8 @@
     <div class="brand"><span class="dot"></span>GRIDWISE</div>
     <div class="header">
       <div class="page-tag">Results</div>
-      <h2>10 / 10. <span class="ink2">Costs match exactly</span>.</h2>
-      <p class="lede">All ten public samples pass interpretation and end-to-end. Optimizer cost equals the reference on every case — quality ratio 1.0.</p>
+      <h2>10 / 10. <span class="ink2">32 / 32 spec audit</span>.</h2>
+      <p class="lede">All ten public samples pass interpretation and end-to-end. Optimizer cost equals the reference on every case. Spec audit passes every section of the problem statement.</p>
     </div>
     <div class="body col">
       <div class="stats">
@@ -537,18 +537,18 @@
           <div class="l">End-to-end costs</div>
         </div>
         <div class="stat">
-          <div class="v a">13 / 13</div>
-          <div class="l">Edge cases</div>
+          <div class="v a">32 / 32</div>
+          <div class="l">Spec audit</div>
         </div>
       </div>
       <div class="stats">
         <div class="stat">
-          <div class="v i">40 +</div>
-          <div class="l">Schema checks</div>
+          <div class="v i">2.18 s</div>
+          <div class="l">SAMPLE-01 · Render</div>
         </div>
         <div class="stat">
-          <div class="v t">~ 3 s</div>
-          <div class="l">p50 latency · Render</div>
+          <div class="v t">6</div>
+          <div class="l">Models, 3 providers</div>
         </div>
         <div class="stat">
           <div class="v a">8</div>
