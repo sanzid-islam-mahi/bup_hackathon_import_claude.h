@@ -15,4 +15,4 @@ venv/
 tests/
 *.pdf
 *.json
-!samples.json
+# samples.json is organizer-provided — not bundled in the Docker image

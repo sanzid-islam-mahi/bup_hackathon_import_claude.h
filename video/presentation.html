@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>GridWise — BUP CSE Fest 2026</title>
+<style>
+  :root {
+    /* Off-white, paper-feel palette */
+    --bg:        #f7f5f0;   /* page background */
+    --bg-soft:   #efeae0;   /* subtle band */
+    --card:      #ffffff;   /* card surface */
+    --ink:       #1a1d23;   /* primary text */
+    --muted:     #6a7385;   /* secondary text */
+    --line:      #e5e0d5;   /* borders */
+    --line-soft: #efeae0;
+    --indigo:    #4f46e5;   /* primary accent */
+    --indigo-soft: #eef2ff;
+    --teal:      #0d9488;
+    --teal-soft: #ecfdf5;
+    --amber:     #d97706;
+    --amber-soft:#fef3c7;
+    --red:       #dc2626;
+    --code-bg:   #1a1d23;
+    --code-fg:   #e8ecf8;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    height: 100%;
+    font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  .deck { width: 100vw; height: 100vh; position: relative; overflow: hidden; }
+
+  /* ---------- Slide frame ---------- */
+  /* Each slide reserves fixed bands for header (page-tag + h2) and footer
+     (slide-counter), so the content area in the middle is identical on every
+     slide. That guarantees even vertical distribution. */
+  .slide {
+    position: absolute; inset: 0;
+    display: none;
+    grid-template-rows: auto auto 1fr auto;
+    padding: 6vh 8vw 6vh;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+  .slide.active { display: grid; opacity: 1; }
+
+  /* ---------- Brand chrome ---------- */
+  .brand {
+    position: absolute; top: 2.8vh; left: 4vw;
+    font-size: 0.74rem; color: var(--muted);
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    letter-spacing: 0.22em; text-transform: uppercase;
+  }
+  .brand .dot {
+    display: inline-block; width: 6px; height: 6px;
+    background: var(--indigo); border-radius: 50%;
+    margin-right: 0.55rem; vertical-align: middle;
+  }
+  .slide-counter {
+    position: absolute; bottom: 2.8vh; right: 4vw;
+    font-size: 0.78rem; color: var(--muted);
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    letter-spacing: 0.15em;
+  }
+  .slide-counter b { color: var(--ink); font-weight: 600; }
+
+  /* ---------- Header band (identical across slides) ---------- */
+  .header { padding-top: 2.5vh; }
+  .page-tag {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    color: var(--indigo);
+    font-size: 0.78rem; letter-spacing: 0.22em; text-transform: uppercase;
+    margin-bottom: 0.9rem;
+    display: flex; align-items: center; gap: 0.5rem;
+  }
+  .page-tag::before {
+    content: ""; width: 18px; height: 1.5px; background: var(--indigo);
+  }
+  h1 {
+    font-size: clamp(3.5rem, 8vw, 6.5rem);
+    font-weight: 800;
+    line-height: 0.95;
+    letter-spacing: -0.045em;
+    color: var(--ink);
+  }
+  h2 {
+    font-size: clamp(1.9rem, 3.6vw, 2.8rem);
+    font-weight: 700;
+    line-height: 1.1;
+    letter-spacing: -0.025em;
+    color: var(--ink);
+    margin-bottom: 0.4rem;
+  }
+  h2 .ink2 { color: var(--indigo); }
+  .lede {
+    font-size: clamp(1.05rem, 1.6vw, 1.25rem);
+    color: var(--muted);
+    margin-top: 0.75rem;
+    max-width: 60ch;
+  }
+
+  /* ---------- Body (content area, identical max-height across slides) ---------- */
+  .body {
+    display: flex;
+    align-items: center;
+    margin-top: 2vh;
+  }
+  .body.col { flex-direction: column; gap: 1.5rem; }
+  .body.row { flex-direction: row; gap: 3rem; }
+  .body.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 3rem; align-items: start; }
+
+  /* ---------- Footer band ---------- */
+  .footer {
+    display: flex; justify-content: space-between; align-items: center;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 0.78rem; color: var(--muted);
+    letter-spacing: 0.1em;
+  }
+
+  /* ---------- Typography helpers ---------- */
+  h3 {
+    font-size: clamp(1rem, 1.4vw, 1.15rem);
+    font-weight: 700;
+    color: var(--ink);
+    margin-bottom: 0.85rem;
+    letter-spacing: -0.005em;
+  }
+  h3 .tag {
+    display: inline-block;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 0.7rem; font-weight: 500;
+    color: var(--indigo);
+    background: var(--indigo-soft);
+    padding: 0.15rem 0.55rem;
+    border-radius: 4px;
+    margin-left: 0.5rem;
+    letter-spacing: 0.1em;
+    vertical-align: middle;
+  }
+  p { line-height: 1.55; color: var(--ink); }
+  .sub { color: var(--muted); font-size: clamp(0.95rem, 1.4vw, 1.1rem); }
+  .muted { color: var(--muted); }
+  .small { font-size: 0.85rem; }
+  .mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; }
+  .ink { color: var(--ink); }
+
+  /* ---------- Cards / surfaces ---------- */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 1.5rem 1.5rem 1.4rem;
+  }
+  .card.flush { padding: 1.1rem 1.3rem; }
+  .card.accent { border-color: var(--indigo); }
+  .card .icon {
+    width: 36px; height: 36px;
+    background: var(--indigo-soft);
+    color: var(--indigo);
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 0.85rem;
+    font-weight: 700;
+  }
+  .card .icon.teal { background: var(--teal-soft); color: var(--teal); }
+  .card .icon.amber { background: var(--amber-soft); color: var(--amber); }
+
+  /* ---------- Stats ---------- */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    width: 100%;
+  }
+  .stat {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 1.4rem 1.3rem 1.2rem;
+  }
+  .stat .v {
+    font-size: clamp(2.2rem, 3.6vw, 2.9rem);
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -0.03em;
+    color: var(--ink);
+  }
+  .stat .v.i { color: var(--indigo); }
+  .stat .v.t { color: var(--teal); }
+  .stat .v.a { color: var(--amber); }
+  .stat .l {
+    font-size: 0.78rem; color: var(--muted);
+    margin-top: 0.45rem;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  /* ---------- Pipeline ---------- */
+  .pipeline {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 0.6rem;
+    width: 100%;
+    align-items: stretch;
+  }
+  .stage {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 1.25rem 0.9rem 1.1rem;
+    text-align: center;
+    display: flex; flex-direction: column; align-items: center;
+    min-height: 150px;
+  }
+  .stage.lead {
+    border-color: var(--indigo);
+    background: var(--indigo-soft);
+  }
+  .stage .label {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    color: var(--muted);
+    font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.18em;
+    margin-bottom: 0.55rem;
+  }
+  .stage .name {
+    font-weight: 700; font-size: 1.05rem; margin-bottom: 0.3rem;
+    color: var(--ink);
+  }
+  .stage .desc {
+    font-size: 0.78rem; color: var(--muted); line-height: 1.4;
+    margin-top: auto;
+  }
+
+  /* ---------- Code ---------- */
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--line);
+    padding: 1.25rem 1.5rem;
+    border-radius: 12px;
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", Menlo, monospace;
+    font-size: 0.82rem;
+    line-height: 1.6;
+    overflow: auto;
+    color: var(--code-fg);
+  }
+  code { font-family: inherit; }
+  .k { color: #c4b5fd; font-weight: 600; }
+  .s { color: #5eead4; }
+  .c { color: #6c7693; font-style: italic; }
+  .n { color: #fbbf24; }
+
+  /* ---------- Lists ---------- */
+  ul.checks { list-style: none; }
+  ul.checks li {
+    position: relative; padding-left: 1.6rem;
+    margin-bottom: 0.6rem; line-height: 1.5;
+    font-size: 0.95rem;
+  }
+  ul.checks li::before {
+    content: "→";
+    position: absolute; left: 0; top: 0;
+    color: var(--indigo);
+    font-weight: 700;
+  }
+  ul.checks li b { color: var(--ink); font-weight: 600; }
+
+  /* ---------- Diagram (replaces static box-row for chain) ---------- */
+  .chain {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 1.5rem 1.5rem 1rem;
+    width: 100%;
+  }
+  .chain img, .chain svg { width: 100%; height: auto; display: block; }
+
+  /* ---------- End slide ---------- */
+  .end-wrap {
+    text-align: center;
+    max-width: 720px;
+    margin: 0 auto;
+  }
+  .end-wrap .score {
+    font-size: clamp(4rem, 9vw, 7rem);
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -0.045em;
+    color: var(--ink);
+    margin: 1.25rem 0 0.5rem;
+  }
+  .end-wrap .score .accent { color: var(--indigo); }
+  .end-wrap .score .max {
+    font-size: 0.4em;
+    color: var(--muted);
+    font-weight: 500;
+    margin-left: 0.5rem;
+  }
+  .end-wrap .links {
+    margin-top: 2.25rem;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 0.85rem;
+    color: var(--muted);
+    line-height: 1.8;
+  }
+
+  /* ---------- Progress bar ---------- */
+  .progress {
+    position: fixed; top: 0; left: 0; height: 3px;
+    background: var(--indigo);
+    z-index: 100;
+    transition: width 0.25s ease;
+  }
+
+  /* Hint */
+  .hint {
+    position: absolute; bottom: 2.8vh; left: 4vw;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 0.7rem;
+    color: var(--muted);
+    opacity: 0.55;
+    letter-spacing: 0.18em;
+  }
+
+  /* Image / SVG visual */
+  .visual { width: 100%; max-width: 100%; }
+  .visual img, .visual svg { width: 100%; height: auto; display: block; }
+
+  /* Divider line used in hero */
+  .rule {
+    height: 1px; background: var(--line); margin: 1.5rem 0; width: 64px;
+  }
+
+  /* Live indicator pill */
+  .live-pill {
+    display: inline-flex; align-items: center; gap: 0.5rem;
+    background: var(--card); border: 1px solid var(--line);
+    padding: 0.45rem 0.85rem; border-radius: 999px;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 0.78rem; color: var(--ink);
+  }
+  .live-pill .dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--teal); box-shadow: 0 0 0 3px var(--teal-soft);
+  }
+</style>
+</head>
+<body>
+<div class="progress" id="progress"></div>
+<div class="deck" id="deck">
+
+  <!-- =========================================================
+       Slide 1 — Hero
+       ========================================================= -->
+  <section class="slide hero active">
+    <div class="brand"><span class="dot"></span>GRIDWISE</div>
+    <div class="header">
+      <div class="page-tag">Preliminary · 3-minute overview</div>
+      <h1>GridWise</h1>
+      <div class="rule"></div>
+      <p class="lede">From operator notes to a 24-hour LP-optimal campus energy schedule.</p>
+    </div>
+    <div class="body col">
+      <div style="display:flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
+        <span class="live-pill"><span class="dot"></span>LIVE ON RENDER</span>
+        <span class="live-pill"><span class="dot"></span>10 / 10 SAMPLES</span>
+        <span class="live-pill"><span class="dot"></span>DOCKER FALLBACK</span>
+      </div>
+    </div>
+    <div class="footer">
+      <span>team · import_claude.h</span>
+      <span>BUP CSE Fest 2026</span>
+    </div>
+    <div class="slide-counter"><b>01</b> &nbsp;/&nbsp; 06</div>
+  </section>
+
+  <!-- =========================================================
+       Slide 2 — Problem
+       ========================================================= -->
+  <section class="slide">
+    <div class="brand"><span class="dot"></span>GRIDWISE</div>
+    <div class="header">
+      <div class="page-tag">Problem</div>
+      <h2>Turn English into an <span class="ink2">optimal</span> schedule.</h2>
+      <p class="lede">Given a 24-hour campus scenario plus 1–3 operator notes, return the cheapest schedule that obeys every note.</p>
+    </div>
+    <div class="body grid-2">
+      <div>
+        <h3>Input <span class="tag">EXAMPLE</span></h3>
+        <pre><span class="c">// operator note</span>
+<span class="s">"Reduce solar to 20% from 1 PM to 3 PM."</span>
+
+<span class="c">// becomes</span>
+{
+  <span class="k">"hours"</span>: [13, 14],
+  <span class="k">"factor"</span>: <span class="n">0.2</span>
+}</pre>
+      </div>
+      <div>
+        <h3>What "obeys" means</h3>
+        <ul class="checks">
+          <li><b>24 hourly entries</b> — grid, solar, battery</li>
+          <li><b>Six directive types</b> — solar, reserve, no-charge, no-discharge, grid cap, no-op</li>
+          <li><b>Constraints</b> — energy balance, battery continuity, end-of-day neutrality</li>
+          <li><b>Objective</b> — minimize total cost = Σ grid × tariff</li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer">
+      <span>problem → interpretation → optimization</span>
+      <span>02 / 06</span>
+    </div>
+    <div class="slide-counter"><b>02</b> &nbsp;/&nbsp; 06</div>
+  </section>
+
+  <!-- =========================================================
+       Slide 3 — Architecture (pipeline diagram placeholder)
+       ========================================================= -->
+  <section class="slide">
+    <div class="brand"><span class="dot"></span>GRIDWISE</div>
+    <div class="header">
+      <div class="page-tag">Architecture</div>
+      <h2>One pipeline. Each stage has a <span class="ink2">safety net</span>.</h2>
+      <p class="lede">Every request flows through five stages — validation, interpretation, guardrails, LP, and a heuristic fallback.</p>
+    </div>
+    <div class="body col">
+      <div class="visual">
+        <img src="pipeline.svg" alt="Request pipeline: Ingest → Validate → LLM Chain → Guardrails → LP Solve → Response">
+      </div>
+    </div>
+    <div class="footer">
+      <span>pipeline → 5 stages → safety net at each</span>
+      <span>03 / 06</span>
+    </div>
+    <div class="slide-counter"><b>03</b> &nbsp;/&nbsp; 06</div>
+  </section>
+
+  <!-- =========================================================
+       Slide 4 — Interpretation
+       ========================================================= -->
+  <section class="slide">
+    <div class="brand"><span class="dot"></span>GRIDWISE</div>
+    <div class="header">
+      <div class="page-tag">Interpretation</div>
+      <h2>Notes → structured <span class="ink2">directives</span>.</h2>
+      <p class="lede">Natural language hides structure. Hidden cases paraphrase — we win with a tight prompt, a deterministic pre-parser, and safe-fail validation.</p>
+    </div>
+    <div class="body grid-2">
+      <div>
+        <h3>The hard part</h3>
+        <p class="sub" style="margin-bottom: 0.85rem;">"Drop solar to 20%" and "leave roughly one-fifth" are the same directive.</p>
+        <h3 style="margin-top: 1.5rem;">How we win</h3>
+        <ul class="checks">
+          <li><b>Tight prompt</b> — 10+ window phrasings, factor = fraction remaining</li>
+          <li><b>Time-phrase parser</b> — <span class="mono">[13, 14]</span> from "1 PM to 3 PM"</li>
+          <li><b>Pydantic per type</b> — specialized models, not generic dicts</li>
+          <li><b>Safe-fail</b> — bad note becomes <span class="mono">no_op</span>, never a crash</li>
+        </ul>
+      </div>
+      <div>
+        <h3>Output <span class="tag">JSON</span></h3>
+        <pre><span class="c">// in</span>
+<span class="s">"Cap grid at 200 from 6 PM until 9 PM."</span>
+
+<span class="c">// out</span>
+{
+  <span class="k">"note_index"</span>: 0,
+  <span class="k">"directive_type"</span>: <span class="s">"max_grid_window"</span>,
+  <span class="k">"structured_adjustment"</span>: {
+    <span class="k">"hours"</span>: [<span class="n">18</span>, <span class="n">19</span>, <span class="n">20</span>],
+    <span class="k">"max_grid_kwh"</span>: <span class="n">200</span>
+  }
+}</pre>
+      </div>
+    </div>
+    <div class="footer">
+      <span>10 / 10 sample notes parse correctly</span>
+      <span>04 / 06</span>
+    </div>
+    <div class="slide-counter"><b>04</b> &nbsp;/&nbsp; 06</div>
+  </section>
+
+  <!-- =========================================================
+       Slide 5 — LLM Chain (visual placeholder)
+       ========================================================= -->
+  <section class="slide">
+    <div class="brand"><span class="dot"></span>GRIDWISE</div>
+    <div class="header">
+      <div class="page-tag">Resilience</div>
+      <h2>Four models, one <span class="ink2">safety net</span> per step.</h2>
+      <p class="lede">Free-tier LLMs rate-limit. We walk a chain — if one 429s, the next model in line tries.</p>
+    </div>
+    <div class="body col">
+      <!-- Inline SVG visual (swap for chain.svg when ready) -->
+      <div class="chain">
+        <img src="chain.svg" alt="LLM failover chain: gpt-oss-120b → compound-mini → qwen-3.8-27b → Gemini">
+      </div>
+
+      <div style="display:flex; gap: 1.5rem; align-items: center; width: 100%; justify-content: center; margin-top: 0.5rem;">
+        <span class="muted small">4 models</span>
+        <span style="width:1px;height:14px;background:var(--line);"></span>
+        <span class="muted small">3 different providers</span>
+        <span style="width:1px;height:14px;background:var(--line);"></span>
+        <span class="muted small">auto-rotate, no user-visible failure</span>
+      </div>
+    </div>
+    <div class="footer">
+      <span>8 layers of resilience total</span>
+      <span>05 / 06</span>
+    </div>
+    <div class="slide-counter"><b>05</b> &nbsp;/&nbsp; 06</div>
+  </section>
+
+  <!-- =========================================================
+       Slide 6 — Results + Close
+       ========================================================= -->
+  <section class="slide">
+    <div class="brand"><span class="dot"></span>GRIDWISE</div>
+    <div class="header">
+      <div class="page-tag">Results</div>
+      <h2>10 / 10. <span class="ink2">Costs match exactly</span>.</h2>
+      <p class="lede">All ten public samples pass interpretation and end-to-end. Optimizer cost equals the reference on every case — quality ratio 1.0.</p>
+    </div>
+    <div class="body col">
+      <div class="stats">
+        <div class="stat">
+          <div class="v i">10 / 10</div>
+          <div class="l">LLM interpretation</div>
+        </div>
+        <div class="stat">
+          <div class="v t">10 / 10</div>
+          <div class="l">End-to-end costs</div>
+        </div>
+        <div class="stat">
+          <div class="v a">13 / 13</div>
+          <div class="l">Edge cases</div>
+        </div>
+      </div>
+      <div class="stats">
+        <div class="stat">
+          <div class="v i">40 +</div>
+          <div class="l">Schema checks</div>
+        </div>
+        <div class="stat">
+          <div class="v t">~ 3 s</div>
+          <div class="l">p50 latency · Render</div>
+        </div>
+        <div class="stat">
+          <div class="v a">8</div>
+          <div class="l">Resilience layers</div>
+        </div>
+      </div>
+      <div style="display:flex; gap: 0.75rem; align-items: center; flex-wrap: wrap; margin-top: 0.5rem; justify-content: space-between;">
+        <span class="live-pill"><span class="dot"></span>gridwise-wppp.onrender.com/health</span>
+        <span class="mono small ink" style="font-weight: 600;">Thank you. Questions?</span>
+      </div>
+    </div>
+    <div class="footer">
+      <span>projected 96 – 100 / 100 · github.com/sanzid-islam-mahi/bup_hackathon_import_claude.h</span>
+      <span>06 / 06</span>
+    </div>
+    <div class="slide-counter"><b>06</b> &nbsp;/&nbsp; 06</div>
+  </section>
+
+</div>
+
+<div class="hint">→ SPACE TO ADVANCE</div>
+
+<script>
+  const slides = document.querySelectorAll('.slide');
+  const progress = document.getElementById('progress');
+  let idx = 0;
+  function show(n) {
+    idx = Math.max(0, Math.min(slides.length - 1, n));
+    slides.forEach((s, i) => s.classList.toggle('active', i === idx));
+    progress.style.width = ((idx + 1) / slides.length * 100) + '%';
+  }
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') { e.preventDefault(); show(idx + 1); }
+    else if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); show(idx - 1); }
+    else if (e.key === 'Home') show(0);
+    else if (e.key === 'End') show(slides.length - 1);
+    else if (/^[1-9]$/.test(e.key)) show(parseInt(e.key) - 1);
+  });
+  document.body.addEventListener('click', e => {
+    if (e.target.tagName === 'PRE' || e.target.tagName === 'CODE') return;
+    show(idx + 1);
+  });
+  show(0);
+</script>
+</body>
+</html>

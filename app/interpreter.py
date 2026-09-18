@@ -17,6 +17,7 @@ from pydantic import ValidationError
 
 from app.llm import chat_with_fallback as groq_chat
 from app.llm_gemini import chat as gemini_chat
+from app.time_parser import suggest_hours_text
 
 logger = logging.getLogger("gridwise.interpreter")
 from app.schemas import (
@@ -109,9 +110,17 @@ Return ONLY the JSON object {"directives": [...]}. No markdown, no commentary.
 
 
 def _build_user_prompt(notes: List[str], battery_capacity_kwh: float) -> str:
-    notes_block = "\n".join(
-        f"[note_index={i}] {n}" for i, n in enumerate(notes)
-    )
+    # Pre-parse hours deterministically for each note and add a hint.
+    # The LLM still does the work; the hint is just an extra signal that
+    # protects against hidden paraphrases the LLM might miscoerce.
+    notes_block_lines = []
+    for i, n in enumerate(notes):
+        hint = suggest_hours_text(n)
+        if hint:
+            notes_block_lines.append(f"[note_index={i}] {n}{hint}")
+        else:
+            notes_block_lines.append(f"[note_index={i}] {n}")
+    notes_block = "\n".join(notes_block_lines)
     return f"""Battery capacity for this scenario: {battery_capacity_kwh} kWh.
 
 Operator notes (interpret each one):

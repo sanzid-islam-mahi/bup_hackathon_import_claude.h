@@ -17,11 +17,12 @@ sys.path.insert(0, str(Path(__file__).parent))
 from app.schemas import OptimizeRequest
 from app.interpreter import interpret_notes
 from app.optimizer import optimize
+from samples_loader import load_samples
 
 
 def make_base_scenario():
     import json
-    cases = json.loads(Path("/home/sanzid/competitions/bup-hackathon/samples.json").read_text())["cases"]
+    cases = load_samples()
     return json.loads(json.dumps(cases[0]["input"]))
 
 
