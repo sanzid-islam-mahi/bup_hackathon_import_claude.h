@@ -8,7 +8,11 @@ Endpoints:
 """
 import os
 from dotenv import load_dotenv
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
+
+from app.schemas import OptimizeRequest, OptimizeResponse
+from app.interpreter import interpret_notes
+from app.optimizer import optimize
 
 load_dotenv()
 
@@ -25,7 +29,18 @@ def health():
     return {"status": "ok"}
 
 
-# POST /optimize-energy will be added next.
+@app.post("/optimize-energy", response_model=OptimizeResponse)
+def optimize_endpoint(req: OptimizeRequest):
+    """Interpret operator notes + return 24-hour schedule."""
+    try:
+        interpretations = interpret_notes(req)
+        result = optimize(req, interpretations)
+        return result
+    except Exception as e:
+        # Don't leak internals; log and return 500 with safe message
+        raise HTTPException(status_code=500, detail=f"optimization failed: {type(e).__name__}")
+
+
 if __name__ == "__main__":
     import uvicorn
     port = int(os.getenv("PORT", "8000"))
