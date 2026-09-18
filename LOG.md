@@ -67,8 +67,9 @@ README.md
 
 | Item | Value |
 |------|-------|
-| LLM | Groq `openai/gpt-oss-120b` |
-| Backup LLM | Gemini `gemini-flash-lite-latest` (failover on Groq errors) |
+| LLM chain | Groq `openai/gpt-oss-120b` → `groq/compound-mini` → `qwen/qwen3.8-27b` → Gemini |
+| Backup LLM | Gemini `gemini-flash-lite-latest` (final failover after Groq chain) |
+| Groq limits (free) | 30 RPM, 1K RPD, 8K TPM, 200K TPD |
 | Framework | FastAPI 0.115 |
 | Optimizer | `scipy.optimize.linprog` (HiGHS, LP-optimal) |
 | Solver variables | g[h], s[h], c[h], d[h], E[h] — 120 per 24h horizon |
@@ -89,7 +90,7 @@ README.md
 | Malformed `POST` body | — | Returns HTTP 400 (not 422) via `RequestValidationError` handler. |
 | Internal error | — | Returns sanitized 500 `Internal optimization error` (no class-name leak). |
 
-## Current Status (~8:46 PM)
+## Current Status (~9:00 PM)
 
 **Done:**
 - ✅ `/health`, `/optimize-energy` live on Render (`https://gridwise-wppp.onrender.com`)
@@ -100,11 +101,16 @@ README.md
 - ✅ `/readyz`, `/version` added (verified locally — pending Render redeploy)
 - ✅ Rate limiter added (opt-in via `RATE_LIMIT_PER_MIN`), locally verified (3 reqs → 429s)
 - ✅ `smoke_test.py` written (env-configurable URL, verifies health + readyz + version + optimize + 400)
+- ✅ Multi-model Groq chain (`gpt-oss-120b` → `compound-mini` → `qwen3.8-27b`) — auto-rotates on 429 / transient errors
+- ✅ All three Groq fallback models verified on SAMPLE-01/03/05 with production prompt
+- ✅ Rotation logic tested: simulated 429 → confirms next model in chain is tried
+- ✅ Total Groq exhaustion → Gemini fallback (verified with mocks)
 
 **TODO before submission:**
 - ⏳ Commit + push (you said you'll do this manually)
 - ⏳ Wait for Render auto-redeploy (~3-5 min), then run `venv/bin/python smoke_test.py`
 - ⏳ Set up UptimeRobot monitor on `/health` (5-min interval) to dodge Render free-tier cold starts
+- ⏳ Optionally set `RATE_LIMIT_PER_MIN=15` in Render env (currently `0` = disabled)
 - ⏳ 3-minute video (tie-break only, lower priority)
 
 ## Active Deployment

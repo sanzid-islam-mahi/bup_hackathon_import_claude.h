@@ -10,12 +10,15 @@ Flow:
 from __future__ import annotations
 
 import json
+import logging
 import re
 from typing import List, Dict, Any, Optional
 from pydantic import ValidationError
 
-from app.llm import chat as groq_chat
+from app.llm import chat_with_fallback as groq_chat
 from app.llm_gemini import chat as gemini_chat
+
+logger = logging.getLogger("gridwise.interpreter")
 from app.schemas import (
     DirectiveInterpretation,
     OptimizeRequest,
@@ -231,19 +234,23 @@ def interpret_notes(req: OptimizeRequest) -> List[DirectiveInterpretation]:
     ]
 
     try:
-        raw = groq_chat(
+        # chat_with_fallback rotates through Groq models on 429 / transient
+        # errors and returns (content, model_used).
+        raw, model_used = groq_chat(
             user_prompt,
             system=SYSTEM_PROMPT,
             temperature=0.1,
         )
+        logger.info(f"LLM interpretation via {model_used}")
     except Exception as e_primary:
-        # Failover to Gemini if Groq is rate-limited / down
+        # All Groq models in the chain exhausted — fall back to Gemini
         try:
             raw = gemini_chat(
                 user_prompt,
                 system=SYSTEM_PROMPT,
                 temperature=0.1,
             )
+            logger.warning(f"Groq chain exhausted ({type(e_primary).__name__}); fell back to Gemini")
         except Exception as e_backup:
             return fallback
 
