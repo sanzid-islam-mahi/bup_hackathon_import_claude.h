@@ -6,6 +6,16 @@
 
 ---
 
+### 2026-09-18 555ec7a Apply EVALUATION.md audit fixes (P1+P2+P3)
+app/interpreter.py
+app/llm.py
+app/main.py
+app/optimizer.py
+app/schemas.py
+
+### 2026-09-18 6a73f6b Update LOG.md with current status and stack decisions
+LOG.md
+
 ### 2026-09-18 9679cc0 Add LP optimizer Dockerfile and end-to-end tests
 .dockerignore
 .gitignore
@@ -55,15 +65,15 @@ README.md
 | Item | Value |
 |------|-------|
 | LLM | Groq `openai/gpt-oss-120b` |
-| Backup LLM | Gemini `gemini-flash-lite-latest` (not currently used) |
-| Framework | FastAPI |
-| Optimizer | scipy.optimize.linprog (LP-optimal, matches reference) |
-| Solver variables | grid_kwh[h], solar_used[h], charge[h], discharge[h], E[h] |
-| Test results | 10/10 sample cases pass (interpretation + end-to-end) |
-| Deploy target | TBD — Docker builds clean, needs public URL |
+| Backup LLM | Gemini `gemini-flash-lite-latest` (failover on Groq errors) |
+| Framework | FastAPI 0.115 |
+| Optimizer | `scipy.optimize.linprog` (HiGHS, LP-optimal) |
+| Solver variables | g[h], s[h], c[h], d[h], E[h] — 120 per 24h horizon |
+| Test results | 10/10 sample cases (interp + E2E), reference costs match |
+| Deploy target | TBD (Render/ngrok) |
 | Time budget | 4 hours (7 PM – 11 PM) |
 
-## Current Status (~8:17 PM)
+## Current Status (~8:26 PM)
 
 **Done:**
 - ✅ `/health` endpoint live
@@ -71,6 +81,7 @@ README.md
 - ✅ LLM interpretation 10/10 on public samples
 - ✅ Optimizer matches reference optimal costs on 10/10 samples
 - ✅ Dockerfile builds, container runs (with numpy/scipy deps)
+- ✅ All 15 EVALUATION.md audit issues applied (P1, P2, P3)
 
 **TODO before submission:**
 - ⏳ Deploy to public URL (Render/ngrok)
