@@ -11,7 +11,11 @@ Models (check console.groq.com for latest):
 """
 import os
 import json
+from pathlib import Path
+from dotenv import load_dotenv
 from groq import Groq
+
+load_dotenv(dotenv_path=Path(__file__).parent.parent / ".env")
 
 _client = None
 

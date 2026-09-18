@@ -11,7 +11,11 @@ Models:
 """
 import os
 import json
+from pathlib import Path
+from dotenv import load_dotenv
 import google.generativeai as genai
+
+load_dotenv(dotenv_path=Path(__file__).parent.parent / ".env")
 
 _configured = False
 
