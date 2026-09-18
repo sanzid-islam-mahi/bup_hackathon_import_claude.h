@@ -90,7 +90,7 @@ README.md
 | Malformed `POST` body | — | Returns HTTP 400 (not 422) via `RequestValidationError` handler. |
 | Internal error | — | Returns sanitized 500 `Internal optimization error` (no class-name leak). |
 
-## Current Status (~9:00 PM)
+## Current Status (~9:30 PM)
 
 **Done:**
 - ✅ `/health`, `/optimize-energy` live on Render (`https://gridwise-wppp.onrender.com`)
@@ -98,18 +98,21 @@ README.md
 - ✅ LLM interpretation 10/10 on public samples
 - ✅ Optimizer matches reference optimal costs on 10/10 samples
 - ✅ All 15 EVALUATION.md audit issues applied (P1, P2, P3)
-- ✅ `/readyz`, `/version` added (verified locally — pending Render redeploy)
+- ✅ `/readyz`, `/version` added (GET + HEAD) — pending Render redeploy
 - ✅ Rate limiter added (opt-in via `RATE_LIMIT_PER_MIN`), locally verified (3 reqs → 429s)
-- ✅ `smoke_test.py` written (env-configurable URL, verifies health + readyz + version + optimize + 400)
+- ✅ `smoke_test.py` written (env-configurable URL)
 - ✅ Multi-model Groq chain (`gpt-oss-120b` → `compound-mini` → `qwen3.8-27b`) — auto-rotates on 429 / transient errors
 - ✅ All three Groq fallback models verified on SAMPLE-01/03/05 with production prompt
 - ✅ Rotation logic tested: simulated 429 → confirms next model in chain is tried
 - ✅ Total Groq exhaustion → Gemini fallback (verified with mocks)
+- ✅ Edge case test suite (`test_edge_cases.py`): 13/13 pass — covers no_op, factor=0/1, tight reserves, partial blackouts, conflicting directives, duplicates, percentages, all-hours windows
+- ✅ Pydantic test suite (`test_pydantic.py`): all schema invariants validated (5 groups, 40+ checks)
+- ✅ Optimizer fallback now honors hard caps (max_grid_kwh) even when infeasible — better than violating a spec'd constraint
+- ✅ UptimeRobot keeping Render warm (5-min pings on `/health`)
 
 **TODO before submission:**
 - ⏳ Commit + push (you said you'll do this manually)
 - ⏳ Wait for Render auto-redeploy (~3-5 min), then run `venv/bin/python smoke_test.py`
-- ⏳ Set up UptimeRobot monitor on `/health` (5-min interval) to dodge Render free-tier cold starts
 - ⏳ Optionally set `RATE_LIMIT_PER_MIN=15` in Render env (currently `0` = disabled)
 - ⏳ 3-minute video (tie-break only, lower priority)
 

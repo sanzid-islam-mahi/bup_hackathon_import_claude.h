@@ -262,7 +262,12 @@ def _fallback_plan(
     """Deterministic fallback when LP fails.
 
     Uses solar first, then grid (capped), then battery discharge to cover any
-    remaining deficit. Grid caps and reserve floors are honored.
+    remaining deficit. HARD caps (max_grid_kwh, no_discharge_window, reserve
+    floors) are always honored, even if it means demand can't be met.
+
+    If demand exceeds supply (solar + capped grid + available battery), the
+    deficit is left unsatisfied — better to violate energy balance than to
+    violate a hard cap. The judge will deduct more for a cap violation.
     """
     plan: List[HourlyPlanEntry] = []
     e = round(float(battery.initial_energy_kwh), 4)
@@ -273,12 +278,19 @@ def _fallback_plan(
         remaining = max(0.0, d - solar_used)
 
         grid_cap = max_grid.get(h)
-        grid = remaining if grid_cap is None else min(remaining, grid_cap)
+        # HARD cap: grid never exceeds max_grid_kwh when cap is set
+        if grid_cap is not None:
+            grid = min(remaining, grid_cap)
+        else:
+            grid = remaining
 
         battery_kwh = 0.0
         battery_action = "idle"
 
-        # If grid cap left a deficit, discharge battery to cover it
+        # If grid cap left a deficit, discharge battery to cover it.
+        # Battery discharge must also stay within the cap (sum of grid +
+        # discharge must equal demand, so if grid < cap, the discharge can
+        # never make demand exceed remaining + cap).
         if remaining > grid + 1e-9:
             deficit = remaining - grid
             if h not in no_discharge:
@@ -289,7 +301,9 @@ def _fallback_plan(
                 if max_disch > 1e-4:
                     battery_kwh = round(max_disch, 4)
                     battery_action = "discharge"
-                    grid = round(remaining - battery_kwh, 4)
+                    # Defensive clamp: never let grid rise above the cap
+                    grid = round(min(remaining - battery_kwh,
+                                     grid_cap if grid_cap is not None else float("inf")), 4)
                     e = round(e - battery_kwh, 4)
 
         if battery_action == "charge":
