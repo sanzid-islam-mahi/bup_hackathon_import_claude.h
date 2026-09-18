@@ -67,7 +67,7 @@ README.md
 
 | Item | Value |
 |------|-------|
-| LLM provider | **OpenAI `gpt-4o-mini`** (primary, whenever `OPENAI_API_KEY` is set) → Groq `openai/gpt-oss-120b` → `groq/compound-mini` → `qwen/qwen3.8-27b` (fallback chain, used if only `GROQ_API_KEY` is set) → Gemini (final backup) |
+| LLM provider | **OpenAI `gpt-4.1-mini` → `gpt-4o-mini`** (primary, whenever `OPENAI_API_KEY` is set) → Groq `openai/gpt-oss-120b` → `groq/compound-mini` → `qwen/qwen3.8-27b` (fallback chain, used if only `GROQ_API_KEY` is set) → Gemini (final backup) |
 | Backup LLM | Gemini `gemini-flash-lite-latest` (final failover after primary chain exhausts) |
 | Groq limits (free) | 30 RPM, 1K RPD, 8K TPM, 200K TPD |
 | Framework | FastAPI 0.115 |
@@ -129,7 +129,8 @@ README.md
 
 A second independent review (Claude Code, teammate's parallel branch merged into this review) found and fixed real bugs beyond the original EVALUATION.md audit:
 
-- ✅ **OpenAI added as primary provider** per team decision — `app/llm.py` now prefers `OPENAI_API_KEY` (`gpt-4o-mini`, JSON mode) and falls back to the existing Groq chain when only `GROQ_API_KEY` is set. Verified end-to-end locally (paraphrased notes correctly interpreted, ~4.4s full round trip).
+- ✅ **OpenAI added as primary provider** per team decision — `app/llm.py` now prefers `OPENAI_API_KEY` (JSON mode) and falls back to the existing Groq chain when only `GROQ_API_KEY` is set. Verified end-to-end locally (paraphrased notes correctly interpreted, ~4.4s full round trip). Benchmarked p95 4.17s over 10 varied requests, 10/10 success.
+- ✅ **Model selection within OpenAI**: head-to-head tested `gpt-4o-mini` vs `gpt-4.1-mini` vs `gpt-5-mini` on the production interpreter prompt. `gpt-5-mini` rejects `temperature=0.1` outright (400 error — only its default of 1 is supported, undesirable for deterministic extraction). `gpt-4o-mini` repeatedly mis-mapped "no power purchase from the grid" to `no_charge_window` instead of `max_grid_window{max_grid_kwh:0}`, and mishandled inclusive "X through Y" hour ranges (dropped the last hour). `gpt-4.1-mini` got every tested case right and was ~40% faster. Switched `OPENAI_MODEL_CHAIN` to `["gpt-4.1-mini", "gpt-4o-mini"]`.
 - 🔴 **`/readyz` bug**: only checked `GROQ_API_KEY`, so it would incorrectly report `503 degraded` once OpenAI became the configured provider. Fixed to accept either key.
 - 🟡 **`/version` inefficiency**: shelled out via `os.popen("python --version")` on every request. Replaced with `sys.version` (no subprocess).
 - 🔴 **Gemini backup model was stale/experimental**: code still had `gemini-2.0-flash-exp` even though this file's own Stack table already documented `gemini-flash-lite-latest` as the decision — experimental Google model IDs get retired without notice. Fixed to match the documented decision.

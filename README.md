@@ -49,7 +49,7 @@ The container exposes port 8000 and reads whichever provider key is present in y
 - **Python 3.12** (also runs on 3.11+)
 - **FastAPI** + Uvicorn — HTTP service
 - **LLM provider (auto-selected):**
-  - **OpenAI** (`gpt-4o-mini`) — primary, used whenever `OPENAI_API_KEY` is set
+  - **OpenAI** (`gpt-4.1-mini` → `gpt-4o-mini` fallback) — primary, used whenever `OPENAI_API_KEY` is set. `gpt-4.1-mini` was chosen over `gpt-4o-mini` after head-to-head testing on this task showed it more accurate (e.g. `gpt-4o-mini` repeatedly confused "no grid import" with "no battery charging", and mishandled inclusive "X through Y" hour ranges) and ~40% faster.
   - **Groq** (`openai/gpt-oss-120b` → `groq/compound-mini` → `qwen/qwen3.8-27b`) — used when only `GROQ_API_KEY` is set; rotates models automatically on rate limits (429) or transient errors
   - **Gemini** (`gemini-flash-lite-latest`) — final backup if the primary chain is fully exhausted
 - **scipy.optimize.linprog** (HiGHS) — 24-hour energy schedule optimization, exact LP (not a heuristic)
