@@ -393,6 +393,22 @@ def _fallback_plan(
                 if extra > 1e-4:
                     plan_charge[h] = round(plan_charge[h] + extra, 4)
                     drift = round(drift - extra, 4)
+            # Option C: charge at hour 23 from extra grid import. Used only
+            # when surplus-solar option is exhausted and a cap-induced residual
+            # would otherwise leak into end-of-day neutrality. Bounds: rate
+            # cap, capacity headroom, grid cap at h23.
+            if drift > 1e-4 and h not in no_charge:
+                cur_e_after_pass = initial + sum(plan_charge) - sum(plan_discharge)
+                room = round(capacity - cur_e_after_pass, 4)
+                grid_cap = max_grid.get(h)
+                headroom_grid = float("inf") if grid_cap is None else max(
+                    0.0, round(grid_cap - plan_grid[h], 4))
+                extra = min(drift, max_charge_per_h - plan_charge[h],
+                            room, headroom_grid)
+                if extra > 1e-4:
+                    plan_charge[h] = round(plan_charge[h] + extra, 4)
+                    plan_grid[h] = round(plan_grid[h] + extra, 4)
+                    drift = round(drift - extra, 4)
         else:
             # drift < 0 -> battery ends with TOO MUCH energy. Need to extract |-drift|.
             # Strategy: walk backward from hour 23 and reduce charges / add
