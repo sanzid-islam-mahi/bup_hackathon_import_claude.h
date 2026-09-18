@@ -23,3 +23,6 @@ build/
 
 # Private notes folder (not committed)
 .notes/
+
+# Organizer-provided public sample cases — not in this repo (use SAMPLES_JSON_PATH)
+samples.json

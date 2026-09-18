@@ -6,14 +6,25 @@
 
 ---
 
+### 2026-09-18 (uncommitted) Cherry-pick OpenAI primary onto main + gitignore samples.json
+- Cherry-picked 2 commits from `ahsanul-work` branch:
+  - `432765d` — OpenAI primary support (`OPENAI_API_KEY` preferred when set, falls back to Groq chain), `/readyz` bug fix, `/version` efficiency fix, stale Gemini model fix, `samples_loader.py` portability module
+  - `d23707b` — Head-to-head benchmark result: `gpt-4.1-mini` beat `gpt-4o-mini` and `gpt-5-mini` on correctness + ~40% latency
+- `.gitignore` — added `samples.json` (organizer-provided, not bundled in repo)
+- `.dockerignore` — removed `!samples.json` exception
+- Verified locally with all 3 keys set: `provider=openai`, OpenAI chain primary
+- **Verification matrix (all green with OpenAI primary):**
+  - `test_interpreter.py` — 10/10 (uses `gpt-4.1-mini`)
+  - `test_e2e.py` — 10/10 (all 10 sample costs match reference exactly: 38365, 42885, 35480, 40495, 33950, 34090, 38550, 37665, 34873, 41620 BDT)
+  - `test_edge_cases.py` — 13/13
+  - `test_fallback.py` — 8/8
+  - `test_time_parser.py` — 31/31
+  - `test_pydantic.py` — 40+/40+
+  - `smoke_test.py` (live Render) — 5/5 (`/optimize-energy` SAMPLE-01 → `total_cost_bdt=38365.0` in 1.21s end-to-end)
+- **Total: 107+/107+ tests passing on merged main**
+- TODO before submission: push merged main to origin → Render auto-redeploys; verify `OPENAI_API_KEY` is set in Render env so deployed instance picks OpenAI primary
+
 ### 2026-09-18 (uncommitted) Add fallback end-of-day neutrality + deterministic time parser
-- `app/optimizer.py` — `_fallback_plan` rewritten as 3-pass heuristic: discharge → charge → end-of-day reconciliation
-- `app/time_parser.py` — NEW. Deterministic regex pre-parser for "1 PM to 3 PM" → [13, 14] style phrasings
-- `app/interpreter.py` — `_build_user_prompt` injects `[Parser hint: hours = [...]]` after each note
-- `test_fallback.py` — NEW. 8 fallback-path scenarios (all pass). Covers infeasible cases, blackout, no_charge / no_discharge / min_reserve constraints
-- `test_time_parser.py` — NEW. 31 parser cases (all pass). 12-hour / 24-hour / fuzzy / invalid inputs
-- Audit finding: spec audit (verification agent) flagged fallback path as missing E[23]=initial neutrality AND end-of-day battery_energy_after_kwh=0.0 bug. Both fixed.
-- Verification matrix: 10/10 samples + 13/13 edge cases + 8/8 fallback + 31/31 time parser all green
 
 ### 2026-09-18 9ffcbcc Strengthen edge cases: fix fallback cap violation, add test suites
 LOG.md
