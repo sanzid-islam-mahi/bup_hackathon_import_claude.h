@@ -8,7 +8,7 @@ factors in [0,1], non-negative numerics.
 from __future__ import annotations
 
 from typing import List, Literal, Optional, Union
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, ValidationError, field_validator, model_validator
 
 
 # ============ Request ============
@@ -74,7 +74,7 @@ DirectiveType = Literal[
 
 
 class SolarReduction(BaseModel):
-    hours: List[int]
+    hours: List[int] = Field(min_length=1)
     factor: float = Field(ge=0.0, le=1.0)
 
     @field_validator("hours")
@@ -88,7 +88,7 @@ class SolarReduction(BaseModel):
 
 
 class MinimumBatteryReserve(BaseModel):
-    hours: List[int]
+    hours: List[int] = Field(min_length=1)
     minimum_energy_kwh: float = Field(ge=0)
 
     @field_validator("hours")
@@ -102,7 +102,7 @@ class MinimumBatteryReserve(BaseModel):
 
 
 class NoChargeWindow(BaseModel):
-    hours: List[int]
+    hours: List[int] = Field(min_length=1)
 
     @field_validator("hours")
     @classmethod
@@ -115,7 +115,7 @@ class NoChargeWindow(BaseModel):
 
 
 class NoDischargeWindow(BaseModel):
-    hours: List[int]
+    hours: List[int] = Field(min_length=1)
 
     @field_validator("hours")
     @classmethod
@@ -128,7 +128,7 @@ class NoDischargeWindow(BaseModel):
 
 
 class MaxGridWindow(BaseModel):
-    hours: List[int]
+    hours: List[int] = Field(min_length=1)
     max_grid_kwh: float = Field(ge=0)
 
     @field_validator("hours")
@@ -155,21 +155,46 @@ class DirectiveInterpretation(BaseModel):
     note_index: int = Field(ge=0)
     applies: bool
     directive_type: DirectiveType
-    structured_adjustment: Optional[dict] = None  # validated by guardrails post-LLM
+    structured_adjustment: Optional[dict] = None
     explanation: str
 
     @model_validator(mode="after")
-    def check_applies(self):
-        if self.directive_type == "no_op":
+    def check_structured_adjustment(self):
+        """Re-validate structured_adjustment against the matching specialized model.
+
+        This is the second layer of defense: the interpreter's _shape_adjustment
+        already returns shapes that match the models below, but if any caller
+        constructs DirectiveInterpretation directly, this enforces that the shape
+        is correct for the declared directive_type.
+        """
+        dt = self.directive_type
+        adj = self.structured_adjustment
+        if dt == "no_op":
             if self.applies is not False:
                 raise ValueError("no_op requires applies=false")
-            if self.structured_adjustment is not None:
+            if adj is not None:
                 raise ValueError("no_op requires structured_adjustment=null")
-        else:
-            if self.applies is not True:
-                raise ValueError(f"{self.directive_type} requires applies=true")
-            if self.structured_adjustment is None:
-                raise ValueError(f"{self.directive_type} requires structured_adjustment")
+            return self
+        if self.applies is not True:
+            raise ValueError(f"{dt} requires applies=true")
+        if adj is None:
+            raise ValueError(f"{dt} requires structured_adjustment")
+        # Validate against the matching specialized model
+        model_map = {
+            "solar_reduction": SolarReduction,
+            "minimum_battery_reserve": MinimumBatteryReserve,
+            "no_charge_window": NoChargeWindow,
+            "no_discharge_window": NoDischargeWindow,
+            "max_grid_window": MaxGridWindow,
+        }
+        model_cls = model_map.get(dt)
+        if model_cls is not None:
+            try:
+                model_cls.model_validate(adj)
+            except ValidationError as e:
+                raise ValueError(
+                    f"structured_adjustment does not match {dt}: {e}"
+                ) from e
         return self
 
 

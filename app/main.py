@@ -6,15 +6,23 @@ Endpoints:
   GET  /health          → readiness probe
   POST /optimize-energy → interpret operator notes + return 24h schedule
 """
+from __future__ import annotations
+
+import logging
 import os
+
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 
 from app.schemas import OptimizeRequest, OptimizeResponse
 from app.interpreter import interpret_notes
 from app.optimizer import optimize
 
 load_dotenv()
+
+logger = logging.getLogger("gridwise")
 
 app = FastAPI(
     title="GridWise",
@@ -29,6 +37,16 @@ def health():
     return {"status": "ok"}
 
 
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """Return HTTP 400 (per problem statement) for malformed JSON / validation errors."""
+    # Do not leak internals; provide a generic message and request id.
+    return JSONResponse(
+        status_code=400,
+        content={"detail": "Malformed request body"},
+    )
+
+
 @app.post("/optimize-energy", response_model=OptimizeResponse)
 def optimize_endpoint(req: OptimizeRequest):
     """Interpret operator notes + return 24-hour schedule."""
@@ -37,8 +55,10 @@ def optimize_endpoint(req: OptimizeRequest):
         result = optimize(req, interpretations)
         return result
     except Exception as e:
-        # Don't leak internals; log and return 500 with safe message
-        raise HTTPException(status_code=500, detail=f"optimization failed: {type(e).__name__}")
+        # Log internally, return a sanitized message so we don't leak
+        # internal class names / stack traces to callers.
+        logger.exception("optimization failed: %s", type(e).__name__)
+        raise HTTPException(status_code=500, detail="Internal optimization error")
 
 
 if __name__ == "__main__":

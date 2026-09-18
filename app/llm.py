@@ -9,9 +9,12 @@ Models (check console.groq.com for latest):
 - qwen/qwen3.8-27b (fast, good quality)
 - groq/compound-mini (Groq default, fast)
 """
-import os
+from __future__ import annotations
+
 import json
+import os
 from pathlib import Path
+
 from dotenv import load_dotenv
 from groq import Groq
 
@@ -19,11 +22,13 @@ load_dotenv(dotenv_path=Path(__file__).parent.parent / ".env")
 
 _client = None
 
+
 def _get_client():
     global _client
     if _client is None:
         _client = Groq(api_key=os.getenv("GROQ_API_KEY"))
     return _client
+
 
 DEFAULT_MODEL = "openai/gpt-oss-120b"
 
@@ -71,49 +76,6 @@ No markdown, no explanation. Just the JSON object."""
         return {"error": "JSON parse failed", "raw": raw}
 
 
-# Pre-built helpers for common hackathon tasks
-def extract_intent(text: str, language: str = "bn") -> dict:
-    """Extract structured intent from farmer query (matches sample problem Task 1)."""
-    schema = """
-{
-  "crop_type": "string (e.g., rice, potato, tomato)",
-  "planting_date_estimate": "string (ISO date or 'unknown')",
-  "damage_description": "string (English summary)",
-  "geographic_union": "string (union/upazila name or 'unknown')",
-  "language": "string ('bn' or 'en')",
-  "urgency": "string ('low', 'medium', 'high')"
-}"""
-    system = "You are an agricultural assistant for Bangladesh. Extract structured info from farmer queries."
-    prompt = f"Farmer query (in {'Bengali' if language == 'bn' else 'English'}): {text}"
-    return structured_chat(prompt, schema, system=system)
-
-
-def recommend_treatment(symptoms: dict, weather: dict, image_findings: str = "") -> dict:
-    """Generate treatment recommendation (matches sample problem Task 3)."""
-    schema = """
-{
-  "probable_cause": "string",
-  "severity": "string ('Mild', 'Moderate', 'Severe', 'Critical')",
-  "organic_controls": ["string"],
-  "chemical_treatment": {
-    "product": "string",
-    "dosage": "string",
-    "frequency": "string"
-  },
-  "pre_harvest_interval_days": "number",
-  "weather_advice": "string"
-}"""
-    system = "You are a senior agronomist specializing in Bangladesh crops."
-    prompt = f"""Based on these inputs, recommend treatment:
-
-Symptoms: {json.dumps(symptoms)}
-Weather: {json.dumps(weather)}
-Image findings: {image_findings or 'Not provided'}
-"""
-    return structured_chat(prompt, schema, system=system)
-
-
 if __name__ == "__main__":
-    # Demo
-    test = extract_intent("আমার ধানের পাতায় হলুদ দাগ পড়েছে", language="bn")
-    print(json.dumps(test, indent=2, ensure_ascii=False))
+    # Smoke test
+    print(chat("Reply with the word 'ok'.", temperature=0.0))

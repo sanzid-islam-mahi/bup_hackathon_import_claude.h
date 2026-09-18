@@ -15,6 +15,7 @@ from typing import List, Dict, Any, Optional
 from pydantic import ValidationError
 
 from app.llm import chat as groq_chat
+from app.llm_gemini import chat as gemini_chat
 from app.schemas import (
     DirectiveInterpretation,
     OptimizeRequest,
@@ -62,7 +63,7 @@ Your job: for each operator note, decide if it affects today's 24-hour energy sc
 - "from 6 PM to 9 PM" → [18, 19, 20]
 - "1-3 PM" → [13, 14]
 - "the 1-3 PM maintenance window" → [13, 14]
-- "hours 13 through 15" → [13, 14]
+- "hours 13 through 15" → [13, 14, 15]  (inclusive on both ends)
 - "the morning" → use context (typically 6-12, so [6,7,8,9,10,11])
 - "this afternoon" → [12,13,14,15,16]
 - "evening" → [17,18,19,20,21,22]
@@ -89,7 +90,7 @@ If end time is unclear (e.g. "from 1 PM"), assume next distinct boundary or 1 ho
 
 - factor must be in [0.0, 1.0]
 - minimum_energy_kwh must be in [0, battery.capacity_kwh]
-- max_grid_kwh must be > 0
+- max_grid_kwh must be >= 0 (0 = absolute grid blackout allowed)
 
 ## When NOT to apply a directive
 
@@ -119,10 +120,9 @@ Return JSON only."""
 def _parse_llm_json(raw: str) -> Optional[Dict[str, Any]]:
     """Extract JSON object from raw LLM output. Handles markdown fences."""
     s = raw.strip()
-    # Strip markdown fences
+    # Strip markdown fences (greedy match — nested braces survive)
     if s.startswith("```"):
-        # Take the last fenced block (in case of nested)
-        blocks = re.findall(r"```(?:json)?\s*(\{.*?\})\s*```", s, re.DOTALL)
+        blocks = re.findall(r"```(?:json)?\s*(\{.*\})\s*```", s, re.DOTALL)
         if blocks:
             s = blocks[-1]
         else:
@@ -166,9 +166,8 @@ def _shape_adjustment(directive_type: str, raw: Any, battery_capacity_kwh: float
             return None
         if any(x < 0 or x > 23 for x in hs):
             return None
-        if len(set(hs)) != len(hs):
-            return None
-        return sorted(hs)
+        # Deduplicate and sort — don't reject LLM output that has repeated hours
+        return sorted(set(hs))
 
     if directive_type == "solar_reduction":
         hs = _hours(raw.get("hours"))
@@ -205,7 +204,7 @@ def _shape_adjustment(directive_type: str, raw: Any, battery_capacity_kwh: float
         cap = raw.get("max_grid_kwh")
         if hs is None or not isinstance(cap, (int, float)):
             return None
-        if cap <= 0:
+        if cap < 0:  # canonical spec: max_grid_kwh >= 0 (zero = blackout allowed)
             return None
         return {"hours": hs, "max_grid_kwh": float(cap)}
 
@@ -237,8 +236,16 @@ def interpret_notes(req: OptimizeRequest) -> List[DirectiveInterpretation]:
             system=SYSTEM_PROMPT,
             temperature=0.1,
         )
-    except Exception as e:
-        return fallback
+    except Exception as e_primary:
+        # Failover to Gemini if Groq is rate-limited / down
+        try:
+            raw = gemini_chat(
+                user_prompt,
+                system=SYSTEM_PROMPT,
+                temperature=0.1,
+            )
+        except Exception as e_backup:
+            return fallback
 
     parsed = _parse_llm_json(raw)
     if not parsed or "directives" not in parsed or not isinstance(parsed["directives"], list):
